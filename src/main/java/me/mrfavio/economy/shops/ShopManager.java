@@ -32,9 +32,13 @@ public class ShopManager {
         this.displayKey = new org.bukkit.NamespacedKey(plugin, "shop_item_display");
         this.file = new File(plugin.getDataFolder(), "shops.yml");
         if (!file.exists()) {
-            plugin.getDataFolder().mkdirs();
+            if (!plugin.getDataFolder().mkdirs()) {
+                plugin.getLogger().warning("Could not create the plugin data folder!");
+            }
             try {
-                file.createNewFile();
+                if (!file.createNewFile()) {
+                    plugin.getLogger().warning("shops.yml unexpectedly already existed!");
+                }
             } catch (IOException e) {
                 plugin.getLogger().log(java.util.logging.Level.SEVERE, "Unable to make shops.yml!", e);
             }
@@ -178,6 +182,28 @@ public class ShopManager {
     private Location stringToLoc(String str) {
         String[] parts = str.split(",");
         return new Location(Bukkit.getWorld(parts[0]), Integer.parseInt(parts[1]), Integer.parseInt(parts[2]), Integer.parseInt(parts[3]));
+    }
+
+    public void resyncChunkDisplays(org.bukkit.Chunk chunk) {
+        for (org.bukkit.entity.Entity entity : chunk.getEntities()) {
+            if (!(entity instanceof org.bukkit.entity.ItemDisplay display)) continue;
+            if (!display.getPersistentDataContainer().has(displayKey, org.bukkit.persistence.PersistentDataType.BYTE)) continue;
+            if (!displays.containsValue(display)) {
+                display.remove();
+            }
+        }
+
+        for (Map.Entry<Location, ShopData> entry : shops.entrySet()) {
+            Location chestLoc = entry.getKey();
+            if (!chestLoc.getWorld().equals(chunk.getWorld())) continue;
+            if ((chestLoc.getBlockX() >> 4) != chunk.getX() || (chestLoc.getBlockZ() >> 4) != chunk.getZ()) continue;
+
+            org.bukkit.entity.ItemDisplay tracked = displays.get(chestLoc);
+            if (tracked != null && !tracked.isDead() && tracked.isValid()) continue;
+
+            removeStaleDisplays(chestLoc);
+            spawnFloatingItem(chestLoc, Material.valueOf(entry.getValue().itemMaterial));
+        }
     }
 
     private void spawnFloatingItem(Location chestLoc, Material material) {

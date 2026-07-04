@@ -2,7 +2,6 @@ package me.mrfavio.economy;
 
 import me.mrfavio.economy.commands.BalanceCommand;
 import me.mrfavio.economy.commands.EconomyCommand;
-import me.mrfavio.economy.commands.InfoCommand;
 import me.mrfavio.economy.commands.PayCommand;
 import me.mrfavio.economy.listeners.PlayerJoinListener;
 import me.mrfavio.economy.listeners.PlayerQuitListener;
@@ -12,6 +11,7 @@ import me.mrfavio.economy.shops.commands.AdminBuyOrderCommand;
 import me.mrfavio.economy.shops.commands.AdminSellOrderCommand;
 import me.mrfavio.economy.shops.commands.DeleteShopCommand;
 import me.mrfavio.economy.shops.commands.SellOrderCommand;
+import me.mrfavio.economy.shops.listeners.ShopChunkListener;
 import me.mrfavio.economy.shops.listeners.ShopListener;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
@@ -45,7 +45,6 @@ public final class Economy extends JavaPlugin {
         Objects.requireNonNull(getCommand("bal")).setExecutor(new BalanceCommand(this));
         Objects.requireNonNull(getCommand("pay")).setExecutor(new PayCommand(this));
         Objects.requireNonNull(getCommand("eco")).setExecutor(new EconomyCommand(this));
-        Objects.requireNonNull(getCommand("info")).setExecutor(new InfoCommand());
 
         getServer().getPluginManager().registerEvents(new PlayerJoinListener(this), this);
         getServer().getPluginManager().registerEvents(new PlayerQuitListener(this), this);
@@ -61,6 +60,7 @@ public final class Economy extends JavaPlugin {
         Objects.requireNonNull(getCommand("adminsellorder")).setExecutor(new AdminSellOrderCommand(shopManager));
 
         getServer().getPluginManager().registerEvents(new ShopListener(this, shopManager), this);
+        getServer().getPluginManager().registerEvents(new ShopChunkListener(shopManager), this);
     }
 
     @Override
@@ -71,15 +71,20 @@ public final class Economy extends JavaPlugin {
     private void createBalancesConfig() {
         File dataFolder = getDataFolder();
         if (!dataFolder.exists()) {
-            dataFolder.mkdirs();
+            if (!dataFolder.mkdirs()) {
+                getLogger().warning("Could not create the plugin data folder!");
+            }
         }
 
         balancesFile = new File(dataFolder, "balances.yml");
 
         if (!balancesFile.exists()) {
             try {
-                balancesFile.createNewFile();
-                getLogger().info("Successfully created balances.yml!");
+                if (!balancesFile.createNewFile()) {
+                    getLogger().warning("balances.yml unexpectedly already existed!");
+                } else {
+                    getLogger().info("Successfully created balances.yml!");
+                }
             } catch (IOException e) {
                 getLogger().log(Level.SEVERE, "Could not create balances.yml!", e);
             }
@@ -175,11 +180,7 @@ public final class Economy extends JavaPlugin {
             double rounded = Math.floor((money / 1_000_000.0) * 10.0) / 10.0;
             return (rounded % 1 == 0) ? String.format("%.0fM", rounded) : String.format("%.1fM", rounded);
         }
-        if (money >= 1000) {
-            double rounded = Math.floor((money / 1000.0) * 10.0) / 10.0;
-            return (rounded % 1 == 0) ? String.format("%.0fK", rounded) : String.format("%.1fK", rounded);
-        }
-
-        return String.valueOf(money);
+        double rounded = Math.floor((money / 1000.0) * 10.0) / 10.0;
+        return (rounded % 1 == 0) ? String.format("%.0fK", rounded) : String.format("%.1fK", rounded);
     }
 }
