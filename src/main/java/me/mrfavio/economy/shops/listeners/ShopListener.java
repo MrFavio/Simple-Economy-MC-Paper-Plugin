@@ -11,12 +11,12 @@ import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 import org.bukkit.event.block.Action;
 import org.bukkit.event.block.BlockBreakEvent;
+import org.bukkit.event.block.BlockPlaceEvent;
 import org.bukkit.event.player.PlayerInteractEvent;
 import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.ItemStack;
 
 import java.util.HashMap;
-import java.util.Objects;
 
 public class ShopListener implements Listener {
 
@@ -43,6 +43,24 @@ public class ShopListener implements Listener {
         }
     }
 
+    @EventHandler(priority = EventPriority.HIGH)
+    public void onChestPlace(BlockPlaceEvent event) {
+        Block placed = event.getBlockPlaced();
+
+        if (placed.getType() != Material.CHEST && placed.getType() != Material.TRAPPED_CHEST) return;
+        if (!(placed.getBlockData() instanceof org.bukkit.block.data.type.Chest chestData)) return;
+        if (chestData.getType() == org.bukkit.block.data.type.Chest.Type.SINGLE) return;
+
+        for (org.bukkit.block.BlockFace face : new org.bukkit.block.BlockFace[]{org.bukkit.block.BlockFace.NORTH, org.bukkit.block.BlockFace.SOUTH, org.bukkit.block.BlockFace.EAST, org.bukkit.block.BlockFace.WEST}) {
+            Block neighbor = placed.getRelative(face);
+            if (neighbor.getType() == placed.getType() && shopManager.isShopChest(neighbor.getLocation())) {
+                event.setCancelled(true);
+                event.getPlayer().sendMessage("§cYou cannot place a chest here — it would connect to a shop chest!");
+                return;
+            }
+        }
+    }
+
     @EventHandler(priority = EventPriority.HIGHEST)
     public void onPlayerInteract(PlayerInteractEvent event) {
         if (event.getHand() == org.bukkit.inventory.EquipmentSlot.OFF_HAND) return;
@@ -55,17 +73,15 @@ public class ShopListener implements Listener {
 
         if (!isChest && !isSign) return;
 
-        org.bukkit.Location chestLoc = null;
-        ShopManager.ShopData shop = null;
+        org.bukkit.Location chestLoc;
+        ShopManager.ShopData shop;
 
         if (isChest) {
             chestLoc = clickedBlock.getLocation();
             shop = shopManager.getShop(chestLoc);
         } else {
             chestLoc = shopManager.getChestLocationFromSign(clickedBlock.getLocation());
-            if (chestLoc != null) {
-                shop = shopManager.getShop(chestLoc);
-            }
+            shop = chestLoc != null ? shopManager.getShop(chestLoc) : null;
 
             if (shop == null) {
                 org.bukkit.block.BlockFace[] faces = {org.bukkit.block.BlockFace.NORTH, org.bukkit.block.BlockFace.SOUTH, org.bukkit.block.BlockFace.EAST, org.bukkit.block.BlockFace.WEST, org.bukkit.block.BlockFace.UP, org.bukkit.block.BlockFace.DOWN};
@@ -83,7 +99,7 @@ public class ShopListener implements Listener {
             }
         }
 
-        if (shop == null || chestLoc == null) return;
+        if (shop == null) return;
 
         Player player = event.getPlayer();
 
@@ -97,9 +113,9 @@ public class ShopListener implements Listener {
                                 : null;
 
                 if (doubleInventory != null) {
-                    org.bukkit.block.DoubleChest doubleChest = (org.bukkit.block.DoubleChest) doubleInventory.getHolder();
-                    if (doubleChest != null) {
-                        exactChestLoc = ((org.bukkit.block.Chest) Objects.requireNonNull(doubleChest.getLeftSide())).getLocation();
+                    org.bukkit.block.DoubleChest doubleChest = doubleInventory.getHolder();
+                    if (doubleChest != null && doubleChest.getLeftSide() instanceof org.bukkit.block.Chest leftChest) {
+                        exactChestLoc = leftChest.getLocation();
                     }
                 }
             }
@@ -116,29 +132,27 @@ public class ShopListener implements Listener {
             return;
         }
 
-        if (isSign) {
-            if (event.getAction() == Action.RIGHT_CLICK_BLOCK) {
-                event.setCancelled(true);
+        if (event.getAction() == Action.RIGHT_CLICK_BLOCK) {
+            event.setCancelled(true);
 
-                if (!shop.isAdmin && shop.owner.equals(player.getUniqueId())) {
-                    player.sendMessage("§cYou cannot interact with your own shop!");
-                    return;
-                }
+            if (!shop.isAdmin && shop.owner.equals(player.getUniqueId())) {
+                player.sendMessage("§cYou cannot interact with your own shop!");
+                return;
+            }
 
-                if (chestLoc.getBlock().getType() != Material.CHEST) {
-                    player.sendMessage("§cThe shop chest is missing or broken!");
-                    return;
-                }
+            if (chestLoc.getBlock().getType() != Material.CHEST) {
+                player.sendMessage("§cThe shop chest is missing or broken!");
+                return;
+            }
 
-                Chest chest = (Chest) chestLoc.getBlock().getState();
-                Inventory chestInv = chest.getInventory();
-                Material itemMat = Material.valueOf(shop.itemMaterial);
+            Chest chest = (Chest) chestLoc.getBlock().getState();
+            Inventory chestInv = chest.getInventory();
+            Material itemMat = Material.valueOf(shop.itemMaterial);
 
-                if (shop.type.equals("BUY")) {
-                    handleBuyOrder(player, shop, chestInv, itemMat);
-                } else if (shop.type.equals("SELL")) {
-                    handleSellOrder(player, shop, chestInv, itemMat);
-                }
+            if (shop.type.equals("BUY")) {
+                handleBuyOrder(player, shop, chestInv, itemMat);
+            } else if (shop.type.equals("SELL")) {
+                handleSellOrder(player, shop, chestInv, itemMat);
             }
         }
     }
