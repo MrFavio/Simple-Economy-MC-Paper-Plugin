@@ -147,21 +147,22 @@ public class ShopListener implements Listener {
 
             Chest chest = (Chest) chestLoc.getBlock().getState();
             Inventory chestInv = chest.getInventory();
-            Material itemMat = Material.valueOf(shop.itemMaterial);
 
             if (shop.type.equals("BUY")) {
-                handleBuyOrder(player, shop, chestInv, itemMat);
+                handleBuyOrder(player, shop, chestInv);
             } else if (shop.type.equals("SELL")) {
-                handleSellOrder(player, shop, chestInv, itemMat);
+                handleSellOrder(player, shop, chestInv);
             }
         }
     }
 
-    private void handleBuyOrder(Player clicker, ShopManager.ShopData shop, Inventory chestInv, Material mat) {
-        ItemStack itemToTake = new ItemStack(mat, shop.amount);
+    private void handleBuyOrder(Player clicker, ShopManager.ShopData shop, Inventory chestInv) {
+        ItemStack itemToTake = shop.item.clone();
+        itemToTake.setAmount(shop.amount);
+        String itemName = ShopManager.getItemDisplayName(shop.item);
 
         if (!clicker.getInventory().containsAtLeast(itemToTake, shop.amount)) {
-            clicker.sendMessage("§cThis shop wants to buy %dx %s, but you don't have enough!".formatted(shop.amount, mat.name()));
+            clicker.sendMessage("§cThis shop wants to buy %dx %s, but you don't have enough!".formatted(shop.amount, itemName));
             return;
         }
 
@@ -171,7 +172,7 @@ public class ShopListener implements Listener {
             plugin.setBalance(clicker.getUniqueId(), plugin.getBalance(clicker.getUniqueId()) + shop.price);
             plugin.updateTabBalance(clicker);
 
-            clicker.sendMessage("§6[Admin] §aYou sold %dx %s for %d$!".formatted(shop.amount, mat.name(), shop.price));
+            clicker.sendMessage("§aYou sold %dx %s for %d$!".formatted(shop.amount, itemName, shop.price));
             return;
         }
 
@@ -191,16 +192,18 @@ public class ShopListener implements Listener {
         Player ownerPlayer = org.bukkit.Bukkit.getPlayer(shop.owner);
         if (ownerPlayer != null) plugin.updateTabBalance(ownerPlayer);
 
-        clicker.sendMessage("§aYou sold %dx %s for %d$!".formatted(shop.amount, mat.name(), shop.price));
+        clicker.sendMessage("§aYou sold %dx %s for %d$!".formatted(shop.amount, itemName, shop.price));
     }
 
-    private void handleSellOrder(Player clicker, ShopManager.ShopData shop, Inventory chestInv, Material mat) {
+    private void handleSellOrder(Player clicker, ShopManager.ShopData shop, Inventory chestInv) {
         if (plugin.getBalance(clicker.getUniqueId()) < shop.price) {
             clicker.sendMessage("§cYou do not have enough money (%d$)!".formatted(shop.price));
             return;
         }
 
-        ItemStack itemToGive = new ItemStack(mat, shop.amount);
+        ItemStack itemToGive = shop.item.clone();
+        itemToGive.setAmount(shop.amount);
+        String itemName = ShopManager.getItemDisplayName(shop.item);
 
         if (shop.isAdmin) {
             HashMap<Integer, ItemStack> leftOver = clicker.getInventory().addItem(itemToGive);
@@ -212,7 +215,7 @@ public class ShopListener implements Listener {
             plugin.setBalance(clicker.getUniqueId(), plugin.getBalance(clicker.getUniqueId()) - shop.price);
             plugin.updateTabBalance(clicker);
 
-            clicker.sendMessage("§6[Admin] §aYou bought %dx %s for %d$!".formatted(shop.amount, mat.name(), shop.price));
+            clicker.sendMessage("§aYou bought %dx %s for %d$!".formatted(shop.amount, itemName, shop.price));
             return;
         }
 
@@ -237,6 +240,6 @@ public class ShopListener implements Listener {
         Player ownerPlayer = org.bukkit.Bukkit.getPlayer(shop.owner);
         if (ownerPlayer != null) plugin.updateTabBalance(ownerPlayer);
 
-        clicker.sendMessage("§aYou bought %dx %s for %d$!".formatted(shop.amount, mat.name(), shop.price));
+        clicker.sendMessage("§aYou bought %dx %s for %d$!".formatted(shop.amount, itemName, shop.price));
     }
 }

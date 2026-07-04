@@ -1,5 +1,5 @@
 name: Economy
-version: '1.0'
+version: '1.2'
 
 main: me.mrfavio.economy.Economy
 api-version: '26.1.2'
@@ -18,19 +18,19 @@ commands:
     usage: /eco <give/take/set> <player> <amount>
     permission: economy.admin
   buyorder:
-    description: Creates chest shop buy order.
-    usage: /buyorder <item> <amount> <price>
+    description: Creates chest shop buy order using the item in your hand.
+    usage: /buyorder <amount> <price>
   sellorder:
-    description: Creates chest shop sell order.
-    usage: /sellorder <item> <amount> <price>
+    description: Creates chest shop sell order using the item in your hand.
+    usage: /sellorder <amount> <price>
   deleteshop:
     description: Deletes chest shop.
     usage: /deleteshop
   adminbuyorder:
-    description: Create an unlimited admin buy shop (Admin only).
-    usage: /adminbuyorder <item> <amount> <price>
+    description: Create an unlimited admin buy shop using the item in your hand (Admin only).
+    usage: /adminbuyorder <amount> <price>
     permission: economy.admin
   adminsellorder:
-    description: Create an unlimited admin sell shop (Admin only).
-    usage: /adminsellorder <item> <amount> <price>
+    description: Create an unlimited admin sell shop using the item in your hand (Admin only).
+    usage: /adminsellorder <amount> <price>
     permission: economy.admin

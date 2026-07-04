@@ -52,16 +52,16 @@ public class ShopManager {
     public static class ShopData {
         public UUID owner;
         public String type;
-        public String itemMaterial;
+        public org.bukkit.inventory.ItemStack item;
         public int amount;
         public int price;
         public Location signLocation;
         public boolean isAdmin;
 
-        public ShopData(UUID owner, String type, String itemMaterial, int amount, int price, Location signLocation, boolean isAdmin) {
+        public ShopData(UUID owner, String type, org.bukkit.inventory.ItemStack item, int amount, int price, Location signLocation, boolean isAdmin) {
             this.owner = owner;
             this.type = type;
-            this.itemMaterial = itemMaterial;
+            this.item = item;
             this.amount = amount;
             this.price = price;
             this.signLocation = signLocation;
@@ -69,13 +69,13 @@ public class ShopManager {
         }
     }
 
-    public void createShop(Location chestLoc, UUID owner, String type, String material, int amount, int price, Location signLoc, boolean isAdmin) {
-        ShopData data = new ShopData(owner, type, material, amount, price, signLoc, isAdmin);
+    public void createShop(Location chestLoc, UUID owner, String type, org.bukkit.inventory.ItemStack item, int amount, int price, Location signLoc, boolean isAdmin) {
+        ShopData data = new ShopData(owner, type, item, amount, price, signLoc, isAdmin);
 
         shops.put(chestLoc, data);
 
         saveShopToConfig(chestLoc, data);
-        spawnFloatingItem(chestLoc, Material.valueOf(material));
+        spawnFloatingItem(chestLoc, data.item);
     }
 
     public void removeShop(Location chestLoc) {
@@ -145,7 +145,7 @@ public class ShopManager {
 
         config.set("shops." + key + ".owner", data.owner.toString());
         config.set("shops." + key + ".type", data.type);
-        config.set("shops." + key + ".item", data.itemMaterial);
+        config.set("shops." + key + ".item", data.item);
         config.set("shops." + key + ".amount", data.amount);
         config.set("shops." + key + ".price", data.price);
         config.set("shops." + key + ".admin", data.isAdmin);
@@ -165,7 +165,7 @@ public class ShopManager {
             Location chestLoc = stringToLoc(key);
             UUID owner = UUID.fromString(Objects.requireNonNull(config.getString("shops." + key + ".owner")));
             String type = config.getString("shops." + key + ".type");
-            String item = config.getString("shops." + key + ".item");
+            org.bukkit.inventory.ItemStack item = config.getItemStack("shops." + key + ".item");
             int amount = config.getInt("shops." + key + ".amount");
             int price = config.getInt("shops." + key + ".price");
             boolean isAdmin = config.getBoolean("shops." + key + ".admin", false);
@@ -202,15 +202,15 @@ public class ShopManager {
             if (tracked != null && !tracked.isDead() && tracked.isValid()) continue;
 
             removeStaleDisplays(chestLoc);
-            spawnFloatingItem(chestLoc, Material.valueOf(entry.getValue().itemMaterial));
+            spawnFloatingItem(chestLoc, entry.getValue().item);
         }
     }
 
-    private void spawnFloatingItem(Location chestLoc, Material material) {
+    private void spawnFloatingItem(Location chestLoc, org.bukkit.inventory.ItemStack item) {
         Location displayLoc = new Location(chestLoc.getWorld(), chestLoc.getBlockX() + 0.5, chestLoc.getBlockY() + 1.3, chestLoc.getBlockZ() + 0.5);
 
         org.bukkit.entity.ItemDisplay display = chestLoc.getWorld().spawn(displayLoc, org.bukkit.entity.ItemDisplay.class, entity -> {
-            entity.setItemStack(new org.bukkit.inventory.ItemStack(material));
+            entity.setItemStack(item.clone());
             entity.setBillboard(org.bukkit.entity.Display.Billboard.FIXED);
             entity.setInterpolationDuration(2);
             entity.setInterpolationDelay(0);
@@ -236,7 +236,7 @@ public class ShopManager {
             Location chestLoc = entry.getKey();
             chestLoc.getChunk().load();
             removeStaleDisplays(chestLoc);
-            spawnFloatingItem(chestLoc, Material.valueOf(entry.getValue().itemMaterial));
+            spawnFloatingItem(chestLoc, entry.getValue().item);
         }
     }
 
@@ -264,7 +264,27 @@ public class ShopManager {
         }, 0L, 2L);
     }
 
-    public Sign createShopSign(Player player, Block targetBlock, String type, Material mat, int amount, int price, boolean isAdmin) {
+    public static String getItemDisplayName(org.bukkit.inventory.ItemStack item) {
+        org.bukkit.inventory.meta.ItemMeta meta = item.getItemMeta();
+
+        if (meta != null && meta.hasDisplayName()) {
+            return net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer.legacySection().serialize(Objects.requireNonNull(meta.displayName()));
+        }
+
+        if (item.getType() == Material.ENCHANTED_BOOK && meta instanceof org.bukkit.inventory.meta.EnchantmentStorageMeta bookMeta && !bookMeta.getStoredEnchants().isEmpty()) {
+            Map.Entry<org.bukkit.enchantments.Enchantment, Integer> first = bookMeta.getStoredEnchants().entrySet().iterator().next();
+            return first.getKey().getKey().getKey().replace('_', ' ') + " " + first.getValue();
+        }
+
+        if (!item.getEnchantments().isEmpty()) {
+            Map.Entry<org.bukkit.enchantments.Enchantment, Integer> first = item.getEnchantments().entrySet().iterator().next();
+            return item.getType().name() + " (" + first.getKey().getKey().getKey().replace('_', ' ') + " " + first.getValue() + ")";
+        }
+
+        return item.getType().name();
+    }
+
+    public Sign createShopSign(Player player, Block targetBlock, String type, org.bukkit.inventory.ItemStack item, int amount, int price, boolean isAdmin) {
         if (targetBlock == null || targetBlock.getType() != Material.CHEST) {
             player.sendMessage("§cYou must be looking at a chest (max 5 blocks away)!");
             return null;
@@ -292,16 +312,18 @@ public class ShopManager {
         org.bukkit.block.Sign sign = (org.bukkit.block.Sign) signBlock.getState();
         org.bukkit.block.sign.SignSide frontSide = sign.getSide(org.bukkit.block.sign.Side.FRONT);
 
+        String itemName = getItemDisplayName(item);
+
         if (isAdmin) {
             String actionTag = type.equals("BUY") ? "§6[Buying]" : "§6[Selling]";
             frontSide.line(0, net.kyori.adventure.text.Component.text("§6§l★ ADMIN ★"));
             frontSide.line(1, net.kyori.adventure.text.Component.text(actionTag));
-            frontSide.line(2, net.kyori.adventure.text.Component.text("§f" + amount + "x " + mat.name()));
+            frontSide.line(2, net.kyori.adventure.text.Component.text("§f" + amount + "x " + itemName));
             frontSide.line(3, net.kyori.adventure.text.Component.text("§ffor §6" + price + "$"));
         } else {
             String actionTag = type.equals("BUY") ? "§1[Buying]" : "§4[Selling]";
             frontSide.line(0, net.kyori.adventure.text.Component.text(actionTag));
-            frontSide.line(1, net.kyori.adventure.text.Component.text(amount + "x " + mat.name()));
+            frontSide.line(1, net.kyori.adventure.text.Component.text(amount + "x " + itemName));
             frontSide.line(2, net.kyori.adventure.text.Component.text("for"));
             frontSide.line(3, net.kyori.adventure.text.Component.text(price + "$"));
         }
