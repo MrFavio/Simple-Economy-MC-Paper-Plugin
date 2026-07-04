@@ -2,6 +2,7 @@ package me.mrfavio.economy;
 
 import me.mrfavio.economy.commands.BalanceCommand;
 import me.mrfavio.economy.commands.EconomyCommand;
+import me.mrfavio.economy.commands.InfoCommand;
 import me.mrfavio.economy.commands.PayCommand;
 import me.mrfavio.economy.listeners.PlayerJoinListener;
 import me.mrfavio.economy.listeners.PlayerQuitListener;
@@ -45,6 +46,8 @@ public final class Economy extends JavaPlugin {
         Objects.requireNonNull(getCommand("bal")).setExecutor(new BalanceCommand(this));
         Objects.requireNonNull(getCommand("pay")).setExecutor(new PayCommand(this));
         Objects.requireNonNull(getCommand("eco")).setExecutor(new EconomyCommand(this));
+
+        Objects.requireNonNull(getCommand("info")).setExecutor(new InfoCommand());
 
         getServer().getPluginManager().registerEvents(new PlayerJoinListener(this), this);
         getServer().getPluginManager().registerEvents(new PlayerQuitListener(this), this);
