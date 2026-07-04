@@ -1,0 +1,5 @@
+passive-income:
+  enabled: true
+  interval-value: 1
+  interval-unit: HOURS
+  amount: 2.0

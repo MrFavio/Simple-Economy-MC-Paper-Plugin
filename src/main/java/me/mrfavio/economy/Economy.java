@@ -21,6 +21,7 @@ import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.entity.Player;
 import org.bukkit.plugin.java.JavaPlugin;
+import org.bukkit.scheduler.BukkitTask;
 import org.bukkit.scoreboard.*;
 
 import java.io.File;
@@ -64,6 +65,8 @@ public final class Economy extends JavaPlugin {
 
         getServer().getPluginManager().registerEvents(new ShopListener(this, shopManager), this);
         getServer().getPluginManager().registerEvents(new ShopChunkListener(shopManager), this);
+
+        startPassiveIncomeTask();
     }
 
     @Override
@@ -185,5 +188,43 @@ public final class Economy extends JavaPlugin {
         }
         double rounded = Math.floor((money / 1000.0) * 10.0) / 10.0;
         return (rounded % 1 == 0) ? String.format("%.0fK", rounded) : String.format("%.1fK", rounded);
+    }
+
+    private BukkitTask incomeTask;
+
+    private void startPassiveIncomeTask() {
+        saveDefaultConfig();
+        FileConfiguration config = getConfig();
+
+        boolean doPassiveIncome = config.getBoolean("enabled", true);
+
+        if (incomeTask != null) {
+            incomeTask.cancel();
+            incomeTask = null;
+        }
+
+        if (!doPassiveIncome) {
+            getLogger().info("Passive income is disabled in config.yml.");
+            return;
+        }
+
+        long intervalValue = config.getLong("passive-income.interval-value", 1);
+        String intervalUnit = config.getString("passive-income.interval-unit", "HOURS");
+        double incomeAmount = config.getDouble("passive-income.amount", 2.0);
+
+        long seconds = switch (intervalUnit.toUpperCase()) {
+            case "MINUTES" -> intervalValue * 60;
+            case "SECONDS" -> intervalValue;
+            default -> intervalValue * 60 * 60;
+        };
+        long ticks = seconds * 20L;
+
+        incomeTask = Bukkit.getScheduler().runTaskTimer(this, () -> {
+            for (Player player : Bukkit.getOnlinePlayers()) {
+                double current = getBalance(player.getUniqueId());
+                setBalance(player.getUniqueId(), current + incomeAmount);
+                player.sendMessage("§aYou received §e" + incomeAmount + "$ §afor playing on server!");
+            }
+        }, ticks, ticks);
     }
 }
